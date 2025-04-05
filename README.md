@@ -49,7 +49,7 @@ A professional MCP server for analyzing PubMed medical literature to help resear
 ### 6. generate_comprehensive_analysis
 生成全面分析报告。/ Generate comprehensive analysis.
 
-## 使用示例 / Cursor
+## Cursor使用示例 / Example for Cursor
 
 ```bash
 # 安装依赖
@@ -58,10 +58,10 @@ pip install -r requirements.txt
 uv pip install -r requirements.txt
 ```
 
-### 配置MCP.json
-
+### Write mcp.json
+因为我习惯用uv虚拟环境，因此这里直接使用python的路径运行python文件。
 ```json
-// 在mcp.json中添加以下配置
+// Add the following configuration in mcp.json (for Windows)
 "PubMed": {
         "command": "cmd",
         "args": [
@@ -70,7 +70,33 @@ uv pip install -r requirements.txt
           "path/to/server.py"
         ]
     }
+// For example, my mcp.json file looks like this
+{
+    "mcpServers": {
+      "fetch":{
+        "command": "cmd",
+        "args": [
+          "/c",
+          "uvx",
+          "mcp-server-fetch"
+        ]
+      },
+      "PubMed": {
+        "command": "cmd",
+        "args": [
+          "/c",
+          "path/to/python.exe",
+          "path/to/server.py"
+        ]
+      }
+    }
+  }
 ```
+
+### LLM prompt (Agent mode)
+
+/your_mcp_name (note: it is PubMed here) Help me analyze the research hotspots on prostate cancer immunotherapy in the past three months. Set top_n to 50 and max_results to 5000. My email adress is ...
+/your_mcp_name（注：比如我的mcp.json里面是PubMed）帮我分析一下近三个月前列腺癌免疫治疗的研究热点。top_n设置为50，max_results设置为5000。我的电子邮箱是...
 
 
 ## 注意事项 / Notes
