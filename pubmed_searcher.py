@@ -229,14 +229,35 @@ class PubMedSearcher:
         else:
             article_data["pmid"] = str(pmid)
         
-        # Extract DOI
+        # Extract DOI - Final attempt with careful iteration
         doi = ""
-        article_id_list = record.get("PubmedData", {}).get("ArticleIdList", [])
-        for article_id in article_id_list:
-            if isinstance(article_id, dict) and article_id.get("IdType") == "doi":
-                doi = article_id.get("content", "")
-            elif isinstance(article_id, str) and "doi" in article_id:
-                doi = article_id
+        try:
+            pubmed_data = record.get("PubmedData")
+            if pubmed_data:
+                article_id_list = pubmed_data.get("ArticleIdList")
+                # Iterate through article_id_list if it exists and is iterable
+                if article_id_list:
+                    try:
+                        for id_element in article_id_list:
+                            # Check if the element has attributes and the IdType is 'doi'
+                            # Handles Bio.Entrez.Parser.StringElement and similar objects
+                            if hasattr(id_element, 'attributes') and id_element.attributes.get('IdType') == 'doi':
+                                doi = str(id_element).strip() # Get the string value
+                                if doi: break # Found DOI, exit loop
+                            # Fallback check for plain dictionary structure (less common)
+                            elif isinstance(id_element, dict) and id_element.get('IdType') == 'doi':
+                                doi = id_element.get('content', '').strip() or id_element.get('#text', '').strip()
+                                if doi: break # Found DOI, exit loop
+                    except TypeError:
+                        # Handle cases where article_id_list might not be iterable (e.g., single element)
+                        # Check if the single element itself is the DOI
+                        if hasattr(article_id_list, 'attributes') and article_id_list.attributes.get('IdType') == 'doi':
+                            doi = str(article_id_list).strip()
+
+        except Exception as e:
+            print(f"Warning: Error during DOI extraction for PMID {article_data.get('pmid', 'N/A')}: {e}")
+            doi = "" # Reset DOI on error
+        
         article_data["doi"] = doi
         
         return article_data
