@@ -197,7 +197,8 @@ class PubMedAnalyzer:
                         "authors": article.get("authors", []),
                         "journal": article.get("journal", ""),
                         "publication_date": article.get("publication_date", ""),
-                        "pmid": article.get("pmid", "")
+                        "pmid": article.get("pmid", ""),
+                        "doi": article.get("doi", "")  # Add DOI here
                     })
         
         # Prepare results
