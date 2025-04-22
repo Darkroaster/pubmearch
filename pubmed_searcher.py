@@ -21,15 +21,18 @@ load_dotenv()
 class PubMedSearcher:
     """Class to search PubMed and retrieve article data."""
     
-    def __init__(self, email: str, api_key: Optional[str] = None):
+    def __init__(self, email: Optional[str] = None, api_key: Optional[str] = None):
         """
         Initialize PubMed searcher with user email and optional API key.
         
         Args:
-            email: User email (required by NCBI)
+            email: User email (required by NCBI). If None, will use NCBI_USER_EMAIL from .env
             api_key: NCBI API key for higher request limits (optional)
         """
-        self.email = email
+        self.email = email or os.getenv('NCBI_USER_EMAIL')
+        if not self.email:
+            raise ValueError("Email is required. Either pass it directly or set NCBI_USER_EMAIL in .env")
+            
         self.api_key = api_key or os.getenv('NCBI_API_KEY')
         
         # Set up Entrez
@@ -290,7 +293,7 @@ class PubMedSearcher:
                 f.write(f"Abstract:\n{article.get('abstract', '')}\n")
                 f.write(f"Keywords: {', '.join(article.get('keywords', []))}\n")
                 f.write(f"PMID: {article.get('pmid', '')}\n")
-                f.write(f"DOI: {article.get('doi', '')}\n")
+                f.write(f"DOI: https://doi.org/{article.get('doi', '')}\n")
                 f.write("=" * 80 + "\n\n")
         
         print(f"Exported {len(articles)} articles to {filepath}")
