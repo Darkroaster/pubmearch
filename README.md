@@ -46,8 +46,8 @@ A professional MCP server for analyzing PubMed medical literature to help resear
 ### 5. generate_comprehensive_analysis
 生成全面分析报告。/ Generate comprehensive analysis.
 
-## TREA使用示例 / Example for TREA
-*Between us... when I use the same model, Cursor makes me feel like I'm the one not making sense. TREA, on the other hand, just gets me. Seriously great IDE!*
+## Trae使用示例 / Example for Trae
+*Between us... when I use the same model, Cursor makes me feel like I'm the one not making sense. Trae, on the other hand, just gets me. Seriously great IDE!*
 
 ### 安装依赖 / Install Dependencies
 推荐使用uv虚拟环境。/ Recommend using uv virtual environment.  
