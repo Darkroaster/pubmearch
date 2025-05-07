@@ -10,50 +10,55 @@ This module provides functionality for searching PubMed and retrieving article d
 import os
 import re
 import time
+import json
+import logging
 from datetime import datetime
 from typing import List, Dict, Tuple, Optional, Any, Union
 from Bio import Entrez
-from dotenv import load_dotenv
+from pathlib import Path
 
-# Load environment variables
-load_dotenv()
+
+# Configure logging
+logger = logging.getLogger(__name__)
 
 class PubMedSearcher:
     """Class to search PubMed and retrieve article data."""
     
-    def __init__(self, email: Optional[str] = None, api_key: Optional[str] = None):
+    def __init__(self, email: Optional[str] = None, results_dir: Optional[str] = None, api_key: Optional[str] = None):
         """
-        Initialize PubMed searcher with user email and optional API key.
+        Initialize PubMed searcher with email address in .env.
         
         Args:
-            email: User email (required by NCBI). If None, will use NCBI_USER_EMAIL from .env
-            api_key: NCBI API key for higher request limits (optional)
+            email: Email address for Entrez. If None, use NCBI_USER_EMAIL from environment variables.
+            results_dir: Optional custom results directory path
+            api_key: API key for NCBI. If None, use NCBI_USER_API_KEY from environment variables.
         """
-        self.email = email or os.getenv('NCBI_USER_EMAIL')
+        # use NCBI_USER_EMAIL from .env if email is not provided
+        self.email = email if email is not None else os.getenv('NCBI_USER_EMAIL')
+        self.api_key = api_key if api_key is not None else os.getenv('NCBI_USER_API_KEY')
         if not self.email:
             raise ValueError("Email is required. Either pass it directly or set NCBI_USER_EMAIL in .env")
-            
-        self.api_key = api_key or os.getenv('NCBI_API_KEY')
         
         # Set up Entrez
         Entrez.email = self.email
-        if self.api_key:
-            Entrez.api_key = self.api_key
+        Entrez.api_key = self.api_key
         
-        # Create results directory if it doesn't exist
-        self.results_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "results")
+        # Use provided results directory or create default
+        self.results_dir = Path(results_dir) if results_dir else Path(__file__).resolve().parent / "results"
         os.makedirs(self.results_dir, exist_ok=True)
+        logger.info(f"Using results directory: {self.results_dir}")
     
     def search(self, 
               advanced_search: str, 
               date_range: Optional[Tuple[str, str]] = None,
-              max_results: int = 100) -> List[Dict[str, Any]]:
+              max_results: int = 1000) -> List[Dict[str, Any]]:
         """
         Search PubMed using advanced search syntax.
         
         Args:
             advanced_search: PubMed advanced search query
-            date_range: Optional tuple of (start_date, end_date) in format YYYY/MM/DD
+            date_range: Optional tuple of (start_date, end_date), 
+                        date format is always YYYY/MM/DD
             max_results: Maximum number of results to retrieve
             
         Returns:
@@ -62,14 +67,26 @@ class PubMedSearcher:
         search_term = advanced_search
         
         # Add date range to query if provided
+        # Note: The formats of start_date and end_date is always YYYY/MM/DD
         if date_range:
             start_date, end_date = date_range
-            date_filter = f" AND (\"{start_date}\"[Date - Publication] : \"{end_date}\"[Date - Publication])"
+            date_filter = ""
+            
+            # start_date
+            if start_date:
+                date_filter += f" AND ('{start_date}'[Date - Publication]"
+                if end_date:
+                    date_filter += f" : '{end_date}'[Date - Publication]"
+                date_filter += ")"
+            # if only end_date, set start_date to 1900/01/01 for inclusio
+            elif end_date:
+                date_filter += f" AND ('1900/01/01'[Date - Publication] : '{end_date}'[Date - Publication])"
+            
             search_term += date_filter
         
         try:
             # Search PubMed
-            print(f"Searching PubMed with query: {search_term}")
+            logger.info(f"Searching PubMed with query: {search_term}")
             search_handle = Entrez.esearch(db="pubmed", term=search_term, retmax=max_results, usehistory="y")
             search_results = Entrez.read(search_handle)
             search_handle.close()
@@ -79,10 +96,10 @@ class PubMedSearcher:
             
             # Get the count of results
             count = int(search_results["Count"])
-            print(f"Found {count} results, retrieving up to {max_results}")
+            logger.info(f"Found {count} results, retrieving up to {max_results}")
             
             if count == 0:
-                print("No results found")
+                logger.warning("No results found")
                 return []
             
             # Initialize an empty list to store articles
@@ -92,7 +109,7 @@ class PubMedSearcher:
             batch_size = 100
             for start in range(0, min(count, max_results), batch_size):
                 end = min(count, start + batch_size, max_results)
-                print(f"Retrieving records {start+1} to {end}")
+                logger.info(f"Retrieving records {start+1} to {end}")
                 
                 try:
                     # Fetch the records
@@ -118,13 +135,13 @@ class PubMedSearcher:
                     time.sleep(1)
                     
                 except Exception as e:
-                    print(f"Error fetching batch {start+1} to {end}: {str(e)}")
+                    logger.error(f"Error fetching batch {start+1} to {end}: {str(e)}")
                     continue
             
             return articles
             
         except Exception as e:
-            print(f"Error searching PubMed: {str(e)}")
+            logger.error(f"Error searching PubMed: {str(e)}")
             return []
     
     def _parse_pubmed_record(self, record: Dict) -> Dict[str, Any]:
@@ -296,5 +313,34 @@ class PubMedSearcher:
                 f.write(f"DOI: https://doi.org/{article.get('doi', '')}\n")
                 f.write("=" * 80 + "\n\n")
         
-        print(f"Exported {len(articles)} articles to {filepath}")
+        logger.info(f"Exported {len(articles)} articles to {filepath}")
+        return filepath
+    
+    def export_to_json(self, articles: List[Dict[str, Any]], filename: Optional[str] = None) -> str:
+        """
+        Export articles to JSON format file.
+        
+        Args:
+            articles: List of article dictionaries
+            filename: Optional output filename
+            
+        Returns:
+            Path to the created file
+        """
+        if not filename:
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            filename = f"pubmed_results_{timestamp}.json"
+        
+        filepath = os.path.join(self.results_dir, filename)
+        
+        with open(filepath, 'w', encoding='utf-8') as f:
+            json.dump({
+                "metadata": {
+                    "export_time": datetime.now().isoformat(),
+                    "article_count": len(articles)
+                },
+                "articles": articles
+            }, f, ensure_ascii=False, indent=2)
+        
+        logger.info(f"Exported {len(articles)} articles to {filepath}")
         return filepath

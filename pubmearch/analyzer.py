@@ -30,10 +30,10 @@ class PubMedAnalyzer:
         
     def parse_results_file(self, filepath: str) -> List[Dict[str, Any]]:
         """
-        Parse a PubMed results text file into structured data.
+        Parse a PubMed results file (txt or json) into structured data.
         
         Args:
-            filepath: Path to the results text file
+            filepath: Path to the results file
             
         Returns:
             List of dictionaries containing structured article data
@@ -41,6 +41,20 @@ class PubMedAnalyzer:
         if not os.path.exists(filepath):
             raise FileNotFoundError(f"File not found: {filepath}")
         
+        # Choose parsing method based on file extension
+        if filepath.endswith('.json'):
+            return self._parse_json_file(filepath)
+        else:
+            return self._parse_txt_file(filepath)
+
+    def _parse_json_file(self, filepath: str) -> List[Dict[str, Any]]:
+        """Parse a JSON results file."""
+        with open(filepath, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+            return data.get("articles", [])
+
+    def _parse_txt_file(self, filepath: str) -> List[Dict[str, Any]]:
+        """Parse a text results file."""
         articles = []
         current_article = None
         section = None
@@ -164,13 +178,14 @@ class PubMedAnalyzer:
         
         return publication_dates
     
-    def analyze_research_hotspots(self, articles: List[Dict[str, Any]], top_n: int = 20) -> Dict[str, Any]:
+    def analyze_research_keywords(self, articles: List[Dict[str, Any]], top_n: int = 20, include_trends: bool = True) -> Dict[str, Any]:
         """
-        Analyze research hotspots based on keyword frequencies.
+        Analyze research hotspots and trends based on keyword frequencies.
         
         Args:
             articles: List of article dictionaries
             top_n: Number of top keywords to include
+            include_trends: Bool indicating whether to include trend analysis, default True.
             
         Returns:
             Dictionary with analysis results
@@ -198,7 +213,7 @@ class PubMedAnalyzer:
                         "journal": article.get("journal", ""),
                         "publication_date": article.get("publication_date", ""),
                         "pmid": article.get("pmid", ""),
-                        "doi": article.get("doi", "")  # Add DOI here
+                        "doi": article.get("doi", "")  
                     })
         
         # Prepare results
@@ -207,70 +222,53 @@ class PubMedAnalyzer:
             "keyword_articles": {kw: articles for kw, articles in keyword_articles.items()}
         }
         
+        # 如果需要趋势分析
+        if include_trends:
+            # 提取发布日期
+            pub_dates = self.extract_publication_dates(articles)
+            
+            # 按月份分组
+            monthly_keyword_counts = defaultdict(lambda: defaultdict(int))
+            
+            for article in articles:
+                date_str = article.get("publication_date", "")
+                article_keywords = article.get("keywords", [])
+                
+                # 尝试解析日期
+                parsed_date = None
+                for title, date in pub_dates:
+                    if title == article.get("title", ""):
+                        parsed_date = date
+                        break
+                
+                if parsed_date:
+                    month_key = parsed_date.strftime("%Y-%m")
+                    for kw in article_keywords:
+                        if kw in dict(top_keywords):
+                            monthly_keyword_counts[month_key][kw] += 1
+            
+            # 转换为可排序格式并按日期排序
+            sorted_months = sorted(monthly_keyword_counts.keys())
+            
+            # 准备趋势数据
+            trend_data = {
+                "months": sorted_months,
+                "keywords": [kw for kw, _ in top_keywords],
+                "counts": []
+            }
+            
+            for keyword, _ in top_keywords:
+                keyword_trend = []
+                for month in sorted_months:
+                    keyword_trend.append(monthly_keyword_counts[month][keyword])
+                trend_data["counts"].append({
+                    "keyword": keyword,
+                    "monthly_counts": keyword_trend
+                })
+            
+            results["trends"] = trend_data
+        
         return results
-    
-    def analyze_research_trends(self, articles: List[Dict[str, Any]], top_n: int = 10) -> Dict[str, Any]:
-        """
-        Analyze research trends over time based on monthly keyword frequencies.
-        
-        Args:
-            articles: List of article dictionaries
-            top_n: Number of top keywords to track trends for
-            
-        Returns:
-            Dictionary with trend analysis results
-        """
-        # Extract all keywords first to find the most common ones
-        all_keywords = []
-        for article in articles:
-            all_keywords.extend(article.get("keywords", []))
-        
-        keyword_counts = Counter(all_keywords)
-        top_keywords = [kw for kw, _ in keyword_counts.most_common(top_n)]
-        
-        # Extract publication dates
-        pub_dates = self.extract_publication_dates(articles)
-        
-        # Group by month
-        monthly_keyword_counts = defaultdict(lambda: defaultdict(int))
-        
-        for article in articles:
-            date_str = article.get("publication_date", "")
-            article_keywords = article.get("keywords", [])
-            
-            # Try to parse the date
-            parsed_date = None
-            for title, date in pub_dates:
-                if title == article.get("title", ""):
-                    parsed_date = date
-                    break
-            
-            if parsed_date:
-                month_key = parsed_date.strftime("%Y-%m")
-                for kw in article_keywords:
-                    if kw in top_keywords:
-                        monthly_keyword_counts[month_key][kw] += 1
-        
-        # Convert to sortable format and sort by date
-        sorted_months = sorted(monthly_keyword_counts.keys())
-        
-        # Prepare trend data
-        trend_data = {
-            "months": sorted_months,
-            "keywords": top_keywords,
-            "counts": []
-        }
-        
-        for keyword in top_keywords:
-            keyword_trend = []
-            for month in sorted_months:
-                keyword_trend.append(monthly_keyword_counts[month][keyword])
-            trend_data["counts"].append({
-                "keyword": keyword,
-                "monthly_counts": keyword_trend
-            })
-        
-        return trend_data
     
     def analyze_publication_count(self, articles: List[Dict[str, Any]], months_per_period: int = 3) -> Dict[str, Any]:
         """
@@ -312,14 +310,13 @@ class PubMedAnalyzer:
         return results
     
     def generate_comprehensive_analysis(self, filepath: str, top_keywords: int = 20,
-                                        trend_keywords: int = 10, months_per_period: int = 3) -> Dict[str, Any]:
+                                     months_per_period: int = 3) -> Dict[str, Any]:
         """
         Generate a comprehensive analysis of PubMed results from a file.
         
         Args:
             filepath: Path to the results text file
             top_keywords: Number of top keywords for hotspot analysis
-            trend_keywords: Number of keywords for trend analysis
             months_per_period: Number of months per period for publication count
             
         Returns:
@@ -332,8 +329,7 @@ class PubMedAnalyzer:
                 return {"error": "No articles found in the file."}
             
             # Generate analysis components
-            hotspots = self.analyze_research_hotspots(articles, top_keywords)
-            trends = self.analyze_research_trends(articles, trend_keywords)
+            keyword_analysis = self.analyze_research_keywords(articles, top_keywords)
             pub_counts = self.analyze_publication_count(articles, months_per_period)
             
             # Combine results
@@ -341,8 +337,7 @@ class PubMedAnalyzer:
                 "file_analyzed": os.path.basename(filepath),
                 "analysis_timestamp": datetime.now().isoformat(),
                 "article_count": len(articles),
-                "research_hotspots": hotspots,
-                "research_trends": trends,
+                "keyword_analysis": keyword_analysis,
                 "publication_counts": pub_counts
             }
             

@@ -1,0 +1,21 @@
+# 1. 虚拟环境 (uv默认创建 .venv)
+.venv/
+env/
+venv/
+ENV/
+
+# 2. Python 编译文件和缓存
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# 3. 日志文件 (server.py中指定了 pubmed_server.log)
+*.log
+
+# 4. 结果文件
+results/
+
+# 5. 敏感信息文件 (例如包含API密钥的 .env 文件)
+.env
+.env.*
