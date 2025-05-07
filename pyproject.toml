@@ -1,0 +1,25 @@
+[project]
+name = "pubmearch" 
+version = "0.1.0" # 版本号
+description = "MCP server for analyzing PubMed search results" 
+authors = [{ name="Skyler Jiang", email="skyleristyping@gmail.com" }] 
+readme = "README.md" 
+requires-python = ">=3.10" 
+
+dependencies = [
+    "mcp[cli]", 
+    "fastapi", 
+    "biopython", 
+    "python-dotenv", 
+    "uvicorn",
+    "pydantic",
+    "matplotlib",
+    "pandas"
+]
+
+[project.scripts]
+pubmearch_mcp = "pubmearch.server:main" # 指向您服务器启动函数的位置
+
+[build-system]
+requires = ["setuptools", "wheel"] # 构建项目所需的工具
+build-backend = "setuptools.build_meta"
