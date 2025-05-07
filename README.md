@@ -50,16 +50,17 @@ A professional MCP server for analyzing PubMed medical literature to help resear
 *Between us... when I use the same model, Cursor makes me feel like I'm the one not making sense. TREA, on the other hand, just gets me. Seriously great IDE!*
 
 ### 安装依赖 / Install Dependencies
-推荐使用uv虚拟环境。/ Recommend using uv virtual environment.
-uv：[访问uv repo](https://github.com/astral-sh/uv)
+推荐使用uv虚拟环境。/ Recommend using uv virtual environment.  
+uv：[访问uv repo](https://github.com/astral-sh/uv) 
+
 ```bash
 # pyproject.toml 目录下：
 uv pip install -e .
 ```
 
 ### Write mcp.json
+Merge the following configuration in mcp.json (for Windows):
 ```json
-// Add the following configuration in mcp.json (for Windows)
 {
   "mcpServers": {
     "pubmearch": {
@@ -88,14 +89,14 @@ uv pip install -e .
 3. 向下滚动到“API Keys”部分，点击“Create API Key”。/ Scroll down to the "API Keys" section and click "Create API Key".
 
 ### LLM prompt (Agent mode)
-**推荐使用高级检索语法**。/ **Use advanced search syntax**.
-Help me analyze the research hotspots on prostate cancer immunotherapy in the past three months. The advanced search query is ((prostat*[Title/Abstract]) AND (cancer[Title/Abstract])) AND (immu*[Title/Abstract]).
-帮我分析一下近三个月前列腺癌免疫治疗的研究热点，检索词为((prostat*[Title/Abstract]) AND (cancer[Title/Abstract])) AND (immu*[Title/Abstract]).
+**推荐使用高级检索语法**。/ **Use advanced search syntax**. 
+- Help me analyze the research hotspots on prostate cancer immunotherapy in the past three months. The advanced search query is ((prostat*[Title/Abstract]) AND (cancer[Title/Abstract])) AND (immu*[Title/Abstract]).  
+- 帮我分析一下近三个月前列腺癌免疫治疗的研究热点，检索词为((prostat*[Title/Abstract]) AND (cancer[Title/Abstract])) AND (immu*[Title/Abstract]).
 
 
 ## 注意事项 / Notes
 
-- 请遵循NCBI的API使用政策。/ Follow NCBI usage policies.
+- 请遵循NCBI的API使用政策。/ Follow NCBI usage policies. 
 - 结果文件保存在`pubmearch/results`目录，日志位于`pubmed_server.log`。/ Results saved in `pubmearch/results` directory, logs in `pubmed_server.log`.
 - 本人平时学业繁忙，项目可能会有延迟。/ I am busy with my studies, the project may be delayed.
 
